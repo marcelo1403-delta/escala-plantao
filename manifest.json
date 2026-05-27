@@ -1,7 +1,7 @@
 {
-  "name": "Escala Plantão — PFP Mossoró",
+  "name": "Escala Plantão - Sistema de Gestão",
   "short_name": "Escala Plantão",
-  "description": "Sistema de escala operacional — Divisão de Segurança e Disciplina",
+  "description": "Sistema de Gestão de Escala Plantão",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",
