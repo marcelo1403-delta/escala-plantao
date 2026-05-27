@@ -2247,6 +2247,16 @@ const abrirPopArquivo=(html)=>{
   overlay.addEventListener("click",(event)=>{if(event.target===overlay)overlay.remove();});
   return overlay;
 };
+const aguardarFirebaseSync=(timeoutMs=4000)=>new Promise((resolve)=>{
+  if(window.FirebaseSync){resolve(window.FirebaseSync);return;}
+  const inicio=Date.now();
+  const tick=()=>{
+    if(window.FirebaseSync){resolve(window.FirebaseSync);return;}
+    if(Date.now()-inicio>=timeoutMs){resolve(null);return;}
+    setTimeout(tick,100);
+  };
+  tick();
+});
 const FS_DB_NAME="escalaAgentFileHandles";
 const FS_STORE_NAME="handles";
 const FS_ROTATIVO_KEY="arquivoRotativo";
@@ -2704,8 +2714,9 @@ const abrirDaNuvem=async(pop)=>{
   if(!result){popMsg(`Nenhum registro encontrado para [${docId}].`);return;}
   aplicarEstadoAberto(result.payload,null,`Nuvem [${docId}]`);
 };
-const abrirPagina=()=>{
-  if(typeof window.FirebaseSync==="undefined"){popMsg("Firebase não disponível.");return;}
+const abrirPagina=async()=>{
+  const firebase=await aguardarFirebaseSync();
+  if(!firebase){popMsg("Firebase não disponível. Recarregue a página e tente novamente.");return;}
   const pop=abrirPopArquivo(`<div class="s03-clear-title">ABRIR</div><div class="s03-clear-msg">Selecione uma escala gravada.</div><div class="s03-clear-actions" style="flex-direction:column;align-items:stretch;gap:8px;width:min(560px,92vw)"><div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px"><input id="abrirFiltroData" type="date" style="min-width:0;padding:6px;border:1px solid #cbd5e1;border-radius:4px"><select id="abrirFiltroPlantao" style="min-width:0;padding:6px;border:1px solid #cbd5e1;border-radius:4px"><option value="">Plantão</option><option>ALFA</option><option>BRAVO</option><option>CHARLIE</option><option>DELTA</option></select><select id="abrirFiltroAno" style="min-width:0;padding:6px;border:1px solid #cbd5e1;border-radius:4px"><option value="">Ano</option></select><select id="abrirFiltroMes" style="min-width:0;padding:6px;border:1px solid #cbd5e1;border-radius:4px"><option value="">Mês</option></select></div><div id="abrirListaArquivos" style="max-height:310px;overflow:auto;border:1px solid #cbd5e1;border-radius:4px;background:#fff"></div><div style="display:flex;justify-content:center;gap:8px"><button class="s03-clear-exit" type="button" data-act="limpar">LIMPAR FILTROS</button><button class="s03-clear-exit" type="button" data-act="sair">SAIR</button></div></div>`);
   const filtroData=pop.querySelector("#abrirFiltroData");
   const filtroPlantao=pop.querySelector("#abrirFiltroPlantao");
@@ -2737,7 +2748,7 @@ const abrirPagina=()=>{
       return;
     }
     listaEl.innerHTML=rows.map((item)=>{
-      const status=window.FirebaseSync.calcularStatus(item.dataIso);
+      const status=firebase.calcularStatus(item.dataIso);
       const badge=status==="aberto"?"ABERTO":"VENCIDO";
       return `<button type="button" data-doc-id="${cfgEsc(item.id)}" style="width:100%;display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 10px;border:0;border-bottom:1px solid #e2e8f0;background:#fff;text-align:left;cursor:pointer;font-weight:700;color:#1e3a5f"><span>${cfgEsc(item.label)}</span><span style="font-size:11px;color:${status==="aberto"?"#166534":"#92400e"}">${badge}</span></button>`;
     }).join("");
@@ -2748,13 +2759,13 @@ const abrirPagina=()=>{
   };
   const carregar=async()=>{
     listaEl.innerHTML=`<div style="padding:12px;text-align:center;color:#64748b;font-size:13px">Carregando escalas...</div>`;
-    const lista=await window.FirebaseSync.listarBackups?.()||[];
+    const lista=await firebase.listarBackups?.()||[];
     arquivos=lista.map((item)=>parseBackupDocGestao(item.id)).filter(Boolean);
     atualizar();
   };
   const abrirDoc=async(docId)=>{
     const meta=arquivos.find((item)=>item.id===docId);
-    const result=await window.FirebaseSync.carregar(docId);
+    const result=await firebase.carregar(docId);
     if(!result?.payload){popMsg("Não foi possível carregar a escala selecionada.");return;}
     const estado=cloneGestao(result.payload);
     if(meta)estado.topo={...(estado.topo||{}),data:meta.dataIso,plantao:meta.plantao};
