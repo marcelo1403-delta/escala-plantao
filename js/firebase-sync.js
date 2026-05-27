@@ -19,6 +19,7 @@
   let _db = null;
   let _inicializado = false;
   let _salvando = false;
+  let _ultimoErroListagem = "";
 
   // ─── INDICADOR VISUAL ───────────────────────────────────────────────────────
   function criarIndicador() {
@@ -192,12 +193,14 @@
       if (!_db || !window._fbFS) return [];
       const { collection, getDocs, db } = window._fbFS;
       const snap = await getDocs(collection(db, COLECAO));
+      _ultimoErroListagem = "";
       return snap.docs
         .map(d => ({ id: d.id, status: d.data()._status, salvoEm: d.data()._salvoEm?.toDate?.() || null }))
         .filter(item => item.status !== "inativo")
         .filter(item => !filtroPlantao || item.id.endsWith("-" + filtroPlantao.toUpperCase()))
         .sort((a, b) => (b.salvoEm || 0) - (a.salvoEm || 0));
     } catch (err) {
+      _ultimoErroListagem = err?.message || String(err || "erro desconhecido");
       console.warn("[Firebase] Falha ao listar:", err);
       return [];
     }
@@ -247,6 +250,7 @@
     calcularStatus,
     mostrarStatus,
     COLECAO,
+    get ultimoErroListagem() { return _ultimoErroListagem; },
     get inicializado() { return _inicializado; }
   };
 

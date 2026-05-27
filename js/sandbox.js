@@ -2717,7 +2717,7 @@ const abrirDaNuvem=async(pop)=>{
 const abrirPagina=async()=>{
   const firebase=await aguardarFirebaseSync();
   if(!firebase){popMsg("Firebase não disponível. Recarregue a página e tente novamente.");return;}
-  const pop=abrirPopArquivo(`<div class="s03-clear-title">ABRIR</div><div class="s03-clear-msg">Selecione uma escala gravada.</div><div class="s03-clear-actions" style="flex-direction:column;align-items:stretch;gap:8px;width:min(560px,92vw)"><div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px"><input id="abrirFiltroData" type="date" style="min-width:0;padding:6px;border:1px solid #cbd5e1;border-radius:4px"><select id="abrirFiltroPlantao" style="min-width:0;padding:6px;border:1px solid #cbd5e1;border-radius:4px"><option value="">Plantão</option><option>ALFA</option><option>BRAVO</option><option>CHARLIE</option><option>DELTA</option></select><select id="abrirFiltroAno" style="min-width:0;padding:6px;border:1px solid #cbd5e1;border-radius:4px"><option value="">Ano</option></select><select id="abrirFiltroMes" style="min-width:0;padding:6px;border:1px solid #cbd5e1;border-radius:4px"><option value="">Mês</option></select></div><div id="abrirListaArquivos" style="max-height:310px;overflow:auto;border:1px solid #cbd5e1;border-radius:4px;background:#fff"></div><div style="display:flex;justify-content:center;gap:8px"><button class="s03-clear-exit" type="button" data-act="limpar">LIMPAR FILTROS</button><button class="s03-clear-exit" type="button" data-act="sair">SAIR</button></div></div>`);
+  const pop=abrirPopArquivo(`<div class="s03-clear-title">ABRIR</div><div class="s03-clear-msg">Selecione uma escala gravada.</div><div class="s03-clear-actions" style="flex-direction:column;align-items:stretch;gap:8px;width:min(620px,94vw)"><div style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr auto;gap:6px;align-items:center"><input id="abrirFiltroData" type="date" style="min-width:0;padding:6px;border:1px solid #cbd5e1;border-radius:4px"><select id="abrirFiltroPlantao" style="min-width:0;padding:6px;border:1px solid #cbd5e1;border-radius:4px"><option value="">Plantão</option><option>ALFA</option><option>BRAVO</option><option>CHARLIE</option><option>DELTA</option></select><select id="abrirFiltroAno" style="min-width:0;padding:6px;border:1px solid #cbd5e1;border-radius:4px"><option value="">Ano</option></select><select id="abrirFiltroMes" style="min-width:0;padding:6px;border:1px solid #cbd5e1;border-radius:4px"><option value="">Mês</option></select><button class="s03-clear-confirm" type="button" data-act="abrir-direto" style="white-space:nowrap">ABRIR DATA</button></div><div id="abrirListaArquivos" style="max-height:310px;overflow:auto;border:1px solid #cbd5e1;border-radius:4px;background:#fff"></div><div style="display:flex;justify-content:center;gap:8px"><button class="s03-clear-exit" type="button" data-act="limpar">LIMPAR FILTROS</button><button class="s03-clear-exit" type="button" data-act="sair">SAIR</button></div></div>`);
   const filtroData=pop.querySelector("#abrirFiltroData");
   const filtroPlantao=pop.querySelector("#abrirFiltroPlantao");
   const filtroAno=pop.querySelector("#abrirFiltroAno");
@@ -2744,7 +2744,8 @@ const abrirPagina=async()=>{
   const renderLista=()=>{
     const rows=arquivosFiltrados();
     if(!rows.length){
-      listaEl.innerHTML=`<div style="padding:12px;text-align:center;color:#64748b;font-size:13px">Nenhuma escala encontrada.</div>`;
+      const erro=firebase.ultimoErroListagem?`<div style="margin-top:6px;color:#92400e">A listagem do Firebase retornou erro: ${cfgEsc(firebase.ultimoErroListagem)}</div>`:"";
+      listaEl.innerHTML=`<div style="padding:12px;text-align:center;color:#64748b;font-size:13px">Nenhuma escala encontrada na lista.${erro}<div style="margin-top:6px">Se você já gravou, escolha data/plantão e use ABRIR DATA.</div></div>`;
       return;
     }
     listaEl.innerHTML=rows.map((item)=>{
@@ -2771,11 +2772,30 @@ const abrirPagina=async()=>{
     if(meta)estado.topo={...(estado.topo||{}),data:meta.dataIso,plantao:meta.plantao};
     aplicarEstadoAberto(estado,pop,meta?.label||docId,docId);
   };
+  const abrirDireto=async()=>{
+    const dataIso=filtroData.value;
+    if(!dataIsoValida(dataIso)){popMsg("Escolha uma data válida.");return;}
+    const plantao=normResp(filtroPlantao.value||plantaoPorDataGestao(dataIso));
+    if(!plantao){popMsg("Escolha o plantão.");return;}
+    const ids=[backupDocIdGestao(dataIso,plantao),legacyDocIdGestao(dataIso,plantao)].filter(Boolean);
+    for(const docId of ids){
+      const result=await firebase.carregar(docId);
+      if(result?.payload){
+        const estado=cloneGestao(result.payload);
+        estado.topo={...(estado.topo||{}),data:dataIso,plantao};
+        aplicarEstadoAberto(estado,pop,backupDocIdGestao(dataIso,plantao),docId);
+        return;
+      }
+    }
+    popMsg(`Nenhuma escala encontrada para ${dataPtGestao(dataIso)}-${plantao}.`);
+  };
   [filtroData,filtroPlantao,filtroAno,filtroMes].forEach((el)=>el.addEventListener("change",()=>{if(el===filtroAno)filtroMes.value="";atualizar();}));
+  filtroData.addEventListener("change",()=>{if(!filtroPlantao.value&&dataIsoValida(filtroData.value))filtroPlantao.value=plantaoPorDataGestao(filtroData.value);});
   listaEl.addEventListener("click",(event)=>{
     const btn=event.target.closest("[data-doc-id]");
     if(btn)abrirDoc(btn.dataset.docId);
   });
+  pop.querySelector("[data-act='abrir-direto']").addEventListener("click",abrirDireto);
   pop.querySelector("[data-act='limpar']").addEventListener("click",()=>{filtroData.value="";filtroPlantao.value="";filtroAno.value="";filtroMes.value="";atualizar();});
   pop.querySelector("[data-act='sair']").addEventListener("click",()=>pop.remove());
   carregar();
