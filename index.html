@@ -12,7 +12,7 @@
 <title>Escala Plantão</title>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="icons/icon-192.png"/>
-<link rel="stylesheet" href="css_canonico_limpo.css?v=68"/>
+<link rel="stylesheet" href="css_canonico_limpo.css?v=69"/>
 </head>
 <body class="force-ppf turno-diurno aba-escala-ativa">
 <header class="topo-unico" id="mainHeader">
@@ -25,7 +25,7 @@
 <section aria-label="Informações do plantão" class="topo-secao topo-centro">
 <div class="topo-centro-box">
 <div class="topo-date-group">
-<input class="topo-date-picker" id="topoDatePicker" title="Selecionar data" type="date"/>
+<input class="topo-date-picker" id="topoDatePicker" title="Data da escala" type="date" readonly tabindex="-1"/>
 <span class="topo-dia-semana" id="topoDiaSemana"></span>
 </div>
 <span class="topo-plantao-box" id="topoPlantaoDia"></span>
@@ -733,7 +733,7 @@
 </div>
 </div>
 <script src="js/firebase-sync.js?v=2" type="module"></script>
-<script src="js/sandbox.js?v=60"></script>
+<script src="js/sandbox.js?v=61"></script>
 <script src="js/cadastro.js?v=12"></script>
 <script>
 // Registro do Service Worker (PWA)

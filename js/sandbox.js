@@ -2792,6 +2792,8 @@ document.addEventListener("click",(event)=>{
   limparAcaoCelulaEscala();
 },true);
 document.addEventListener("dragend",()=>{if(tdAvisoForca)limparAvisoForcaRestrita(tdAvisoForca);});
+document.getElementById("topoDatePicker")?.addEventListener("focus",(event)=>event.target.blur());
+document.getElementById("topoDatePicker")?.addEventListener("click",(event)=>event.preventDefault());
 document.getElementById("topoDatePicker")?.addEventListener("change",()=>{validarResponsaveisAusentesPlantaoAtual();renderResponsaveisViews();renderResponsaveisPostos();atualizarBotaoGravarGestao();});
 document.getElementById("topoDatePicker")?.addEventListener("input",()=>{renderResponsaveisViews();atualizarBotaoGravarGestao();});
 document.addEventListener("pointermove",atualizarPonteiroAcaoEscala);
