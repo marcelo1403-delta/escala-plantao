@@ -203,6 +203,16 @@
     }
   }
 
+  async function listarBackups(filtros = {}) {
+    const todos = await listar(filtros.plantao || "");
+    const ano = String(filtros.ano || "").trim();
+    const mes = filtros.mes ? String(filtros.mes).padStart(2, "0") : "";
+    return todos
+      .filter(item => /^escala-\d{2}-\d{2}-\d{4}-[A-Z]+$/i.test(item.id) || /^\d{2}-\d{2}-\d{4}-[A-Z]+$/i.test(item.id))
+      .filter(item => !ano || item.id.includes(`-${ano}-`))
+      .filter(item => !mes || item.id.includes(`-${mes}-`));
+  }
+
   // ─── MARCAR COMO INATIVO (exclusão lógica) ──────────────────────────────────
   async function marcarInativo(docId) {
     try {
@@ -231,6 +241,7 @@
     carregar,
     existe,
     listar,
+    listarBackups,
     marcarInativo,
     gerarDocId,
     calcularStatus,

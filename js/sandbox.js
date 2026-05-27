@@ -2085,11 +2085,67 @@ const dataArquivoPt=()=>{
 };
 const plantaoArquivo=()=>normResp(document.getElementById("topoPlantaoDia")?.textContent||"PLANTAO")||"PLANTAO";
 const nomeBackupArquivo=()=>`escala-${dataArquivoPt()}-${plantaoArquivo()}.json`;
-const efetivoTemPresente=()=>Array.from(document.querySelectorAll("#eftCanonicoBody tr")).some((tr)=>normResp(tr.dataset.sit||tr.children[1]?.textContent)==="PRES");
+const ROTATIVA_DOC_ID="escala-rotativa";
+const BACKUP_DOC_PREFIX="escala-";
+const dataIsoValida=(value)=>{
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(value||""))return false;
+  const [ano,mes,dia]=value.split("-").map(Number);
+  const data=new Date(ano,mes-1,dia);
+  return data.getFullYear()===ano&&data.getMonth()===mes-1&&data.getDate()===dia;
+};
+const dataObjIso=(value)=>{
+  if(!dataIsoValida(value))return null;
+  const [ano,mes,dia]=value.split("-").map(Number);
+  return new Date(ano,mes-1,dia);
+};
+const serialDataGestao=(data)=>{
+  const excelBase=Date.UTC(1899,11,30);
+  const utcDia=Date.UTC(data.getFullYear(),data.getMonth(),data.getDate());
+  return Math.floor((utcDia-excelBase)/86400000);
+};
+const plantaoPorDataGestao=(dataIso)=>{
+  const data=dataObjIso(dataIso);
+  return data?["ALFA","BRAVO","CHARLIE","DELTA"][serialDataGestao(data)%4]:"";
+};
+const diaSemanaGestao=(dataIso)=>{
+  const data=dataObjIso(dataIso);
+  return data?["DOMINGO","SEGUNDA-FEIRA","TERCA-FEIRA","QUARTA-FEIRA","QUINTA-FEIRA","SEXTA-FEIRA","SABADO"][data.getDay()]:"";
+};
+const dataPtGestao=(dataIso)=>{
+  if(!dataIsoValida(dataIso))return "";
+  const [ano,mes,dia]=dataIso.split("-");
+  return `${dia}-${mes}-${ano}`;
+};
+const backupDocIdGestao=(dataIso,plantao=plantaoPorDataGestao(dataIso))=>{
+  const dataPt=dataPtGestao(dataIso);
+  const nomePlantao=normResp(plantao);
+  return dataPt&&nomePlantao?`${BACKUP_DOC_PREFIX}${dataPt}-${nomePlantao}`:"";
+};
+const legacyDocIdGestao=(dataIso,plantao=plantaoPorDataGestao(dataIso))=>{
+  const dataPt=dataPtGestao(dataIso);
+  const nomePlantao=normResp(plantao);
+  return dataPt&&nomePlantao?`${dataPt}-${nomePlantao}`:"";
+};
+const setTopoGestao=(dataIso)=>{
+  const dataEl=document.getElementById("topoDatePicker");
+  const diaEl=document.getElementById("topoDiaSemana");
+  const plantaoEl=document.getElementById("topoPlantaoDia");
+  const plantao=plantaoPorDataGestao(dataIso);
+  if(dataEl)dataEl.value=dataIso||"";
+  if(diaEl)diaEl.textContent=diaSemanaGestao(dataIso);
+  if(plantaoEl)plantaoEl.textContent=plantao;
+  window._nomePlantao=plantao;
+  _dataRespFallback=dataIso||"";
+  _plantaoRespFallback=plantao;
+  if(typeof window.renderEfetivo==="function")window.renderEfetivo();
+  renderResponsaveisViews();
+  renderResponsaveisPostos();
+  atualizarDisponibilidadeColuna();
+  atualizarBotaoGravarGestao();
+};
 const validarDadosParaSalvar=()=>{
-  if(!document.getElementById("topoDatePicker")?.value){popMsg("Selecione a data na navbar antes de gravar.");return false;}
-  if(!normResp(document.getElementById("topoPlantaoDia")?.textContent)){popMsg("Plantão da navbar vazio. Selecione uma data válida para gerar o plantão.");return false;}
-  if(!efetivoTemPresente()){popMsg("A tabela efetivo precisa ter pelo menos uma linha com SIT.=PRES.");return false;}
+  if(!dataIsoValida(document.getElementById("topoDatePicker")?.value||"")){popMsg("Escolha uma data válida.");return false;}
+  if(!normResp(document.getElementById("topoPlantaoDia")?.textContent)){popMsg("Plantão da navbar vazio. Escolha uma data válida.");return false;}
   return true;
 };
 const confirmarSubstituicaoArquivo=(onConfirm)=>{
@@ -2107,6 +2163,76 @@ const baixarJson=(nome,estado)=>{
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+};
+const cloneGestao=(value)=>JSON.parse(JSON.stringify(value||{}));
+const estadoParaRotativa=(estado)=>{
+  const rotativa=cloneGestao(estado);
+  rotativa.tipo="escala-rotativa";
+  rotativa.salvoEm=new Date().toISOString();
+  rotativa.tabelas=Object.fromEntries(S03_TABLE_IDS.map((id)=>[id,[]]));
+  rotativa.alocacoes=[];
+  rotativa.horarios={};
+  rotativa.cadastroHorarios={seq:1,registros:[]};
+  if(rotativa.topo){
+    rotativa.topo={...rotativa.topo,data:"",plantao:""};
+  }
+  return rotativa;
+};
+const estadoEscalaTemDados=()=>{
+  if(dataIsoValida(document.getElementById("topoDatePicker")?.value||""))return true;
+  if(normResp(document.getElementById("topoPlantaoDia")?.textContent||""))return true;
+  const tabelas=snapshotTabelasEscala();
+  if(tabelasEscalaTemNomes(tabelas))return true;
+  return alocacoesTemNomes(sincronizarAlocacoesDadosDoDom());
+};
+const atualizarBotaoGravarGestao=()=>{
+  const btn=document.getElementById("btnGravarTop");
+  if(!btn)return;
+  const pode=dataIsoValida(document.getElementById("topoDatePicker")?.value||"")&&Boolean(normResp(document.getElementById("topoPlantaoDia")?.textContent||""));
+  btn.disabled=!pode;
+  btn.classList.toggle("is-disabled",!pode);
+};
+const carregarRotativaFirebase=async()=>{
+  if(typeof window.FirebaseSync==="undefined")return null;
+  const atual=await window.FirebaseSync.carregar(ROTATIVA_DOC_ID);
+  if(atual?.payload)return atual.payload;
+  const backups=await window.FirebaseSync.listarBackups?.();
+  for(const item of backups||[]){
+    const result=await window.FirebaseSync.carregar(item.id);
+    if(result?.payload){
+      const rotativa=estadoParaRotativa(result.payload);
+      await window.FirebaseSync.salvar(rotativa,ROTATIVA_DOC_ID,{status:"aberto"});
+      return rotativa;
+    }
+  }
+  return null;
+};
+const aplicarBaseRotativaNaNovaEscala=async(dataIso)=>{
+  bloquearAutosaveAte=Date.now()+2000;
+  localStorage.removeItem(STORAGE_ESCALA_KEY);
+  localStorage.removeItem(STORAGE_TABELAS_ESCALA_KEY);
+  const rotativa=await carregarRotativaFirebase();
+  if(rotativa){
+    const estado=cloneGestao(rotativa);
+    estado.topo={...(estado.topo||{}),data:dataIso,plantao:plantaoPorDataGestao(dataIso),forca:forcaAtivaEscala(),filtro:"presente"};
+    estado.tabelas=Object.fromEntries(S03_TABLE_IDS.map((id)=>[id,[]]));
+    estado.alocacoes=[];
+    estado.horarios={};
+    estado.cadastroHorarios={seq:1,registros:[]};
+    restaurandoEstadoPagina=true;
+    aplicarEstadoPagina(estado);
+    restaurandoEstadoPagina=false;
+  }else{
+    limparPaginaNova();
+  }
+  setTopoGestao(dataIso);
+  S03_TABLE_IDS.forEach((id)=>restaurarTabelaEscala(id,[]));
+  alocacaoRows=[];
+  window._alocacaoRows=alocacaoRows;
+  aplicarHorariosAtuais();
+  garantirHorariosVivencias();
+  salvarTabelasEscalaDados();
+  localStorage.setItem(STORAGE_ESCALA_KEY,JSON.stringify(coletarEstadoPagina()));
 };
 const abrirPopArquivo=(html)=>{
   const overlay=document.createElement("div");
@@ -2227,11 +2353,40 @@ const limparPaginaNova=()=>{
   limparResponsaveisViews();
   if(typeof window.renderEfetivo==="function")window.renderEfetivo();
   atualizarDisponibilidadeColuna();
+  atualizarBotaoGravarGestao();
+};
+const abrirPopoverNovaEscala=()=>{
+  const pop=abrirPopArquivo(`<div class="s03-clear-title">INICIAR UMA NOVA ESCALA</div><div class="s03-clear-msg">Escolha uma data.</div><div class="s03-clear-actions" style="flex-direction:column;align-items:center;gap:8px"><input id="novaEscalaDataInput" type="date" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:4px;font-size:13px"><div id="novaEscalaPreview" style="min-height:18px;font-size:12px;font-weight:700;color:#1e3a5f"></div><div style="display:flex;gap:8px"><button class="s03-clear-confirm" type="button" data-act="confirmar">CONFIRMAR</button><button class="s03-clear-exit" type="button" data-act="cancelar">CANCELAR</button></div></div>`);
+  const input=pop.querySelector("#novaEscalaDataInput");
+  const preview=pop.querySelector("#novaEscalaPreview");
+  const atualizarPreview=()=>{
+    const dataIso=input.value;
+    preview.textContent=dataIsoValida(dataIso)?`${diaSemanaGestao(dataIso)} - ${plantaoPorDataGestao(dataIso)}`:"";
+    input.style.borderColor=dataIso&&dataIsoValida(dataIso)?"#cbd5e1":input.style.borderColor;
+  };
+  const confirmar=async()=>{
+    const dataIso=input.value;
+    if(!dataIsoValida(dataIso)){input.style.borderColor="#dc2626";popMsg("Escolha uma data válida");return;}
+    const plantao=plantaoPorDataGestao(dataIso);
+    const docId=backupDocIdGestao(dataIso,plantao);
+    const legacyId=legacyDocIdGestao(dataIso,plantao);
+    const jaExiste=await window.FirebaseSync?.existe?.(docId)||await window.FirebaseSync?.existe?.(legacyId);
+    if(jaExiste){popMsg("Já existe uma escala com essa data, escolha uma outra.");return;}
+    pop.remove();
+    await aplicarBaseRotativaNaNovaEscala(dataIso);
+    popMsg("Nova escala iniciada.");
+  };
+  input.addEventListener("input",atualizarPreview);
+  input.addEventListener("keydown",(event)=>{if(event.key==="Enter")confirmar();});
+  pop.querySelector("[data-act='confirmar']").addEventListener("click",confirmar);
+  pop.querySelector("[data-act='cancelar']").addEventListener("click",()=>pop.remove());
+  input.focus();
 };
 const confirmarNovoPagina=()=>{
-  const pop=abrirPopArquivo(`<div class="s03-clear-title">NOVO</div><div class="s03-clear-msg">todas as informacoes na página serão limpas, deseja continuar?</div><div class="s03-clear-actions"><button class="s03-clear-confirm" type="button" data-act="confirmar">CONFIRMAR</button><button class="s03-clear-exit" type="button" data-act="sair">SAIR</button></div>`);
-  pop.querySelector("[data-act='confirmar']").addEventListener("click",()=>{limparPaginaNova();pop.remove();});
-  pop.querySelector("[data-act='sair']").addEventListener("click",()=>pop.remove());
+  if(!estadoEscalaTemDados()){abrirPopoverNovaEscala();return;}
+  const pop=abrirPopArquivo(`<div class="s03-clear-title">NOVO</div><div class="s03-clear-msg">Todos os dados na tela serão limpos, deseja prosseguir?</div><div class="s03-clear-actions"><button class="s03-clear-confirm" type="button" data-act="sim">SIM</button><button class="s03-clear-exit" type="button" data-act="nao">NÃO</button></div>`);
+  pop.querySelector("[data-act='sim']").addEventListener("click",()=>{pop.remove();abrirPopoverNovaEscala();});
+  pop.querySelector("[data-act='nao']").addEventListener("click",()=>pop.remove());
 };
 const executarGravarPagina=async()=>{
   const estado=coletarEstadoPagina();
@@ -2243,13 +2398,28 @@ const executarGravarPagina=async()=>{
   }
   const dataIso=estado?.topo?.data||"";
   const plantao=estado?.topo?.plantao||"";
-  const docId=window.FirebaseSync.gerarDocId(dataIso,plantao);
-  if(!docId){popMsg("Não foi possível gerar o ID do documento. Verifique a data e o plantão.");return;}
-  const result=await window.FirebaseSync.salvar(estado,docId);
-  if(result.ok){
-    popMsg(`Escala gravada na nuvem com sucesso. [${docId}]`);
+  const backupId=backupDocIdGestao(dataIso,plantao);
+  if(!backupId){popMsg("Não foi possível gerar o ID do backup. Verifique a data e o plantão.");return;}
+  const status=window.FirebaseSync.calcularStatus(dataIso);
+  if(status==="fechado"&&!window._modoEdicaoForcado){
+    popMsg("Escala vencida. Use EDITAR e informe a credencial para alterar apenas o backup.");
+    return;
+  }
+  const backupResult=await window.FirebaseSync.salvar(estado,backupId,{status});
+  if(!backupResult.ok){
+    popMsg("Falha ao gravar backup na nuvem. Dados salvos localmente como emergência.");
+    return;
+  }
+  if(status==="fechado"&&window._modoEdicaoForcado){
+    popMsg(`Backup vencido gravado sem alterar a rotativa. [${backupId}]`);
+    return;
+  }
+  const rotativa=estadoParaRotativa(estado);
+  const rotativaResult=await window.FirebaseSync.salvar(rotativa,ROTATIVA_DOC_ID,{status:"aberto"});
+  if(rotativaResult.ok){
+    popMsg(`Escala gravada: rotativa atualizada e backup criado. [${backupId}]`);
   }else{
-    popMsg("Falha ao gravar na nuvem. Dados salvos localmente como emergência.");
+    popMsg(`Backup gravado, mas a rotativa não foi atualizada. [${backupId}]`);
   }
 };
 const gravarPagina=()=>{
@@ -2261,7 +2431,7 @@ const executarBackupPagina=async()=>{
   if(typeof window.FirebaseSync==="undefined"){popMsg("Firebase indisponível.");return;}
   const dataIso=estado?.topo?.data||"";
   const plantao=estado?.topo?.plantao||"";
-  const docId=window.FirebaseSync.gerarDocId(dataIso,plantao);
+  const docId=backupDocIdGestao(dataIso,plantao);
   if(!docId){popMsg("Não foi possível gerar o ID do backup. Verifique a data e o plantão.");return;}
   const result=await window.FirebaseSync.salvar(estado,docId);
   if(result.ok) popMsg(`Backup gravado na nuvem: [${docId}]`);
@@ -2325,27 +2495,76 @@ const editarPagina=()=>{
 
 // ─── DUPLICAR ────────────────────────────────────────────────────────────────
 const duplicarPagina=()=>{
-  const plantaoAtual=normResp(document.getElementById("topoPlantaoDia")?.textContent||"");
-  if(!plantaoAtual){popMsg("Selecione um plantão na navbar antes de duplicar.");return;}
-  const pop=abrirPopArquivo(`<div class="s03-clear-title">DUPLICAR PLANTÃO</div><div class="s03-clear-msg">Informe a nova data para o plantão <strong>${plantaoAtual}</strong>.<br>A data deve ser inédita e do mesmo pelotão.</div><div class="s03-clear-actions" style="flex-direction:column;align-items:center;gap:8px"><input id="duplicarDataInput" type="date" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:4px;font-size:13px"><div style="display:flex;gap:8px"><button class="s03-clear-confirm" type="button" data-act="confirmar">DUPLICAR</button><button class="s03-clear-exit" type="button" data-act="sair">SAIR</button></div></div>`);
+  if(typeof window.FirebaseSync==="undefined"){popMsg("Firebase não disponível.");return;}
+  const pop=abrirPopArquivo(`<div class="s03-clear-title">DUPLICAR PLANTÃO</div><div class="s03-clear-msg">Escolha uma escala existente e informe a nova data.</div><div class="s03-clear-actions" style="flex-direction:column;align-items:center;gap:8px;width:min(420px,90vw)"><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center"><input id="dupFiltroAno" type="number" min="2000" max="2100" placeholder="Ano" style="width:72px;padding:6px;border:1px solid #cbd5e1;border-radius:4px"><select id="dupFiltroMes" style="padding:6px;border:1px solid #cbd5e1;border-radius:4px"><option value="">Mês</option>${Array.from({length:12},(_,i)=>`<option value="${String(i+1).padStart(2,"0")}">${String(i+1).padStart(2,"0")}</option>`).join("")}</select><select id="dupFiltroPlantao" style="padding:6px;border:1px solid #cbd5e1;border-radius:4px"><option value="">Plantão</option><option>ALFA</option><option>BRAVO</option><option>CHARLIE</option><option>DELTA</option></select></div><select id="duplicarOrigemSelect" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:4px"><option value="">Carregando escalas...</option></select><div id="duplicarOrigemInfo" style="min-height:18px;font-size:12px;font-weight:700;color:#1e3a5f"></div><input id="duplicarDataInput" type="date" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:4px;font-size:13px"><div id="duplicarNovaInfo" style="min-height:18px;font-size:12px;font-weight:700;color:#1e3a5f"></div><div style="display:flex;gap:8px"><button class="s03-clear-confirm" type="button" data-act="confirmar">DUPLICAR</button><button class="s03-clear-exit" type="button" data-act="sair">SAIR</button></div></div>`);
+  const selectOrigem=pop.querySelector("#duplicarOrigemSelect");
   const inputData=pop.querySelector("#duplicarDataInput");
-  const executar=async()=>{
-    const novaData=inputData.value;
-    if(!novaData){inputData.style.borderColor="#dc2626";popMsg("Informe a nova data.");return;}
-    const novoId=window.FirebaseSync?.gerarDocId(novaData,plantaoAtual);
-    if(!novoId){popMsg("Não foi possível gerar o ID. Verifique a data.");return;}
-    const jaExiste=await window.FirebaseSync?.existe(novoId);
-    if(jaExiste){popMsg(`Já existe um plantão gravado para ${novoId}. Escolha outra data.`);return;}
-    const estadoAtual=coletarEstadoPagina();
-    const novoEstado={...estadoAtual,topo:{...estadoAtual.topo,data:novaData},salvoEm:new Date().toISOString()};
-    pop.remove();
-    const result=await window.FirebaseSync?.salvar(novoEstado,novoId);
-    if(result?.ok) popMsg(`Plantão duplicado com sucesso: [${novoId}]`);
-    else popMsg("Falha ao duplicar o plantão na nuvem.");
+  const origemInfo=pop.querySelector("#duplicarOrigemInfo");
+  const novaInfo=pop.querySelector("#duplicarNovaInfo");
+  const filtros={
+    ano:pop.querySelector("#dupFiltroAno"),
+    mes:pop.querySelector("#dupFiltroMes"),
+    plantao:pop.querySelector("#dupFiltroPlantao")
   };
+  const parseBackupId=(id)=>{
+    const match=String(id||"").match(/^(?:escala-)?(\d{2})-(\d{2})-(\d{4})-([A-Z]+)$/i);
+    if(!match)return null;
+    const [,dia,mes,ano,plantao]=match;
+    const dataIso=`${ano}-${mes}-${dia}`;
+    return {id,dataIso,plantao:normResp(plantao),label:`${dia}/${mes}/${ano} - ${normResp(plantao)}`};
+  };
+  let itens=[];
+  const carregarLista=async()=>{
+    selectOrigem.innerHTML=`<option value="">Carregando escalas...</option>`;
+    const lista=await window.FirebaseSync.listarBackups?.({
+      ano:filtros.ano.value,
+      mes:filtros.mes.value,
+      plantao:filtros.plantao.value
+    })||[];
+    itens=lista.map((item)=>parseBackupId(item.id)).filter(Boolean);
+    selectOrigem.innerHTML=`<option value="">Escolha a escala origem</option>${itens.map((item)=>`<option value="${cfgEsc(item.id)}">${cfgEsc(item.label)}</option>`).join("")}`;
+    if(!itens.length)selectOrigem.innerHTML=`<option value="">Nenhuma escala encontrada</option>`;
+    atualizarInfos();
+  };
+  const origemSelecionada=()=>itens.find((item)=>item.id===selectOrigem.value)||null;
+  const atualizarInfos=()=>{
+    const origem=origemSelecionada();
+    origemInfo.textContent=origem?`${diaSemanaGestao(origem.dataIso)} - ${origem.plantao}`:"";
+    const novaData=inputData.value;
+    novaInfo.textContent=dataIsoValida(novaData)?`${diaSemanaGestao(novaData)} - ${plantaoPorDataGestao(novaData)}`:"";
+  };
+  const executar=async()=>{
+    const origem=origemSelecionada();
+    if(!origem){popMsg("Escolha uma escala existente.");return;}
+    const novaData=inputData.value;
+    if(!dataIsoValida(novaData)){inputData.style.borderColor="#dc2626";popMsg("Escolha uma data válida");return;}
+    const novoPlantao=plantaoPorDataGestao(novaData);
+    if(novoPlantao!==origem.plantao){popMsg("O nome do plantão da nova data é diferente do plantão original.");return;}
+    const novoId=backupDocIdGestao(novaData,novoPlantao);
+    const legacyId=legacyDocIdGestao(novaData,novoPlantao);
+    const jaExiste=await window.FirebaseSync.existe(novoId)||await window.FirebaseSync.existe(legacyId);
+    if(jaExiste){popMsg("Já existe uma escala com essa data, escolha uma outra.");return;}
+    const resultOrigem=await window.FirebaseSync.carregar(origem.id);
+    if(!resultOrigem?.payload){popMsg("Não foi possível carregar a escala origem.");return;}
+    const novoEstado=cloneGestao(resultOrigem.payload);
+    novoEstado.topo={...(novoEstado.topo||{}),data:novaData,plantao:novoPlantao};
+    novoEstado.salvoEm=new Date().toISOString();
+    pop.remove();
+    restaurandoEstadoPagina=true;
+    aplicarEstadoPagina(novoEstado);
+    restaurandoEstadoPagina=false;
+    setTopoGestao(novaData);
+    localStorage.setItem(STORAGE_ESCALA_KEY,JSON.stringify(coletarEstadoPagina()));
+    popMsg("Escala duplicada na tela. Confira os dados e clique em GRAVAR.");
+  };
+  Object.values(filtros).forEach((el)=>el.addEventListener("change",carregarLista));
+  filtros.ano.addEventListener("input",()=>{clearTimeout(filtros.ano._timer);filtros.ano._timer=setTimeout(carregarLista,300);});
+  selectOrigem.addEventListener("change",atualizarInfos);
+  inputData.addEventListener("input",atualizarInfos);
   pop.querySelector("[data-act='confirmar']").addEventListener("click",executar);
   inputData.addEventListener("keydown",(e)=>{if(e.key==="Enter")executar();});
   pop.querySelector("[data-act='sair']").addEventListener("click",()=>pop.remove());
+  carregarLista();
 };
 
 // ─── EXCLUIR ─────────────────────────────────────────────────────────────────
@@ -2476,6 +2695,28 @@ const abrirPagina=()=>{
   input.addEventListener("change",()=>abrirBackupArquivo(input.files?.[0],pop));
   pop.querySelector("[data-act='sair']").addEventListener("click",()=>pop.remove());
 };
+const inicializarGestaoPagina=()=>{
+  limparPaginaNova();
+  setTimeout(async()=>{
+    const rotativa=await carregarRotativaFirebase();
+    if(rotativa?.servidores&&typeof window.importCadastroServidores==="function"){
+      window.importCadastroServidores(rotativa.servidores);
+    }
+    if(Array.isArray(rotativa?.configPostos)){
+      rotativa.configPostos.forEach((saved)=>{
+        const row=postoRows.find((item)=>item[0]===saved[0]);
+        if(row)saved.forEach((value,index)=>{row[index]=value;});
+      });
+      renderConfigPostos();
+    }
+    if(rotativa?.responsaveisVersao===2&&listaResponsaveisTemNomes(rotativa.responsaveis)){
+      aplicarResponsaveisSalvos(rotativa.responsaveis||[]);
+      salvarResponsaveisDados();
+    }
+    limparPaginaNova();
+    atualizarBotaoGravarGestao();
+  },500);
+};
 window.renderResponsaveisPostos=renderResponsaveisPostos;
 window.renderResponsaveisViews=renderResponsaveisViews;
 window.validarResponsaveisAusentesPlantaoAtual=validarResponsaveisAusentesPlantaoAtual;
@@ -2551,8 +2792,8 @@ document.addEventListener("click",(event)=>{
   limparAcaoCelulaEscala();
 },true);
 document.addEventListener("dragend",()=>{if(tdAvisoForca)limparAvisoForcaRestrita(tdAvisoForca);});
-document.getElementById("topoDatePicker")?.addEventListener("change",()=>{validarResponsaveisAusentesPlantaoAtual();renderResponsaveisViews();renderResponsaveisPostos();});
-document.getElementById("topoDatePicker")?.addEventListener("input",renderResponsaveisViews);
+document.getElementById("topoDatePicker")?.addEventListener("change",()=>{validarResponsaveisAusentesPlantaoAtual();renderResponsaveisViews();renderResponsaveisPostos();atualizarBotaoGravarGestao();});
+document.getElementById("topoDatePicker")?.addEventListener("input",()=>{renderResponsaveisViews();atualizarBotaoGravarGestao();});
 document.addEventListener("pointermove",atualizarPonteiroAcaoEscala);
 document.addEventListener("pointermove",atualizarPonteiroColunaEscala);
 document.addEventListener("pointerup",finalizarPonteiroAcaoEscala);
@@ -2581,7 +2822,7 @@ document.getElementById("btnDuplicarTop")?.addEventListener("click",duplicarPagi
 document.getElementById("btnExcluirTop")?.addEventListener("click",excluirPagina);
 ["change","input","click","drop"].forEach((eventName)=>document.addEventListener(eventName,agendarAutosavePagina,true));
 window.addEventListener("beforeunload",salvarLocalEmergencial);
-restaurarAutosavePagina();
+inicializarGestaoPagina();
 document.querySelectorAll(".s03-banner-x").forEach((btn)=>btn.addEventListener("click",()=>{
   abrirPopoverLimparTabela(btn.closest(".s03-card")?.querySelector(".s03-table"));
 }));
