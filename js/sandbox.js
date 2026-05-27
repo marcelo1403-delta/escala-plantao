@@ -2103,6 +2103,32 @@ const legacyDocIdGestao=(dataIso,plantao=plantaoPorDataGestao(dataIso))=>{
   const nomePlantao=normResp(plantao);
   return dataPt&&nomePlantao?`${dataPt}-${nomePlantao}`:"";
 };
+const parseBackupDocGestao=(id)=>{
+  const match=String(id||"").match(/^(?:escala-)?(\d{2})-(\d{2})-(\d{4})-([A-Z]+)$/i);
+  if(!match)return null;
+  const [,dia,mes,ano,plantao]=match;
+  const dataIso=`${ano}-${mes}-${dia}`;
+  if(!dataIsoValida(dataIso))return null;
+  const nomePlantao=normResp(plantao);
+  return {id,dataIso,dia,mes,ano,plantao:nomePlantao,label:`escala-${dia}-${mes}-${ano}-${nomePlantao}`};
+};
+const mesNomeGestao=(mes)=>["","JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"][Number(mes)]||mes;
+const escalaFechadaSomenteLeitura=()=>window._escalaAbertaStatus==="fechado"&&!window._modoEdicaoForcado;
+const atualizarModoLeituraEscala=()=>{
+  const somenteLeitura=escalaFechadaSomenteLeitura();
+  document.body.classList.toggle("escala-somente-leitura",somenteLeitura);
+  document.getElementById("btnEditarTop")?.classList.toggle("is-required",somenteLeitura);
+};
+const bloquearInteracaoLeitura=(event)=>{
+  if(!escalaFechadaSomenteLeitura())return;
+  const target=event.target;
+  if(!target?.closest?.("#escalaWrap,#servidoresPage,.s03-clear-popover,.config-popover"))return;
+  if(target.closest(".s03-clear-popover,.config-popover"))return;
+  if(target.closest("#btnEditarTop,#btnAbrirTop,#btnExportarTop,#btnPreviewPrint,.print-escala-btn"))return;
+  event.preventDefault();
+  event.stopPropagation();
+  if(event.type==="click")popMsg("Escala vencida em modo somente leitura. Use EDITAR e informe a credencial para alterar.");
+};
 const setTopoGestao=(dataIso)=>{
   const dataEl=document.getElementById("topoDatePicker");
   const diaEl=document.getElementById("topoDiaSemana");
@@ -2119,6 +2145,7 @@ const setTopoGestao=(dataIso)=>{
   renderResponsaveisPostos();
   atualizarDisponibilidadeColuna();
   atualizarBotaoGravarGestao();
+  atualizarModoLeituraEscala();
 };
 const validarDadosParaSalvar=()=>{
   if(!dataIsoValida(document.getElementById("topoDatePicker")?.value||"")){popMsg("Escolha uma data válida.");return false;}
@@ -2360,6 +2387,10 @@ const abrirPopoverNovaEscala=()=>{
   input.focus();
 };
 const confirmarNovoPagina=()=>{
+  window._escalaAbertaStatus="aberto";
+  window._modoEdicaoForcado=false;
+  window._arquivoAbertoDocId="";
+  atualizarModoLeituraEscala();
   if(!estadoEscalaTemDados()){abrirPopoverNovaEscala();return;}
   const pop=abrirPopArquivo(`<div class="s03-clear-title">NOVO</div><div class="s03-clear-msg">Todos os dados na tela serão limpos, deseja prosseguir?</div><div class="s03-clear-actions"><button class="s03-clear-confirm" type="button" data-act="sim">SIM</button><button class="s03-clear-exit" type="button" data-act="nao">NÃO</button></div>`);
   pop.querySelector("[data-act='sim']").addEventListener("click",()=>{pop.remove();abrirPopoverNovaEscala();});
@@ -2375,11 +2406,14 @@ const executarGravarPagina=async()=>{
   }
   const dataIso=estado?.topo?.data||"";
   const plantao=estado?.topo?.plantao||"";
-  const backupId=backupDocIdGestao(dataIso,plantao);
+  const abertoMeta=parseBackupDocGestao(window._arquivoAbertoDocId||"");
+  const backupId=abertoMeta?.dataIso===dataIso&&abertoMeta?.plantao===normResp(plantao)?abertoMeta.id:backupDocIdGestao(dataIso,plantao);
   if(!backupId){popMsg("Não foi possível gerar o ID do backup. Verifique a data e o plantão.");return;}
   const status=window.FirebaseSync.calcularStatus(dataIso);
+  window._escalaAbertaStatus=status;
   if(status==="fechado"&&!window._modoEdicaoForcado){
     popMsg("Escala vencida. Use EDITAR e informe a credencial para alterar apenas o backup.");
+    atualizarModoLeituraEscala();
     return;
   }
   const backupResult=await window.FirebaseSync.salvar(estado,backupId,{status});
@@ -2388,16 +2422,20 @@ const executarGravarPagina=async()=>{
     return;
   }
   if(status==="fechado"&&window._modoEdicaoForcado){
+    window._arquivoAbertoDocId=backupId;
     popMsg(`Backup vencido gravado sem alterar a rotativa. [${backupId}]`);
+    atualizarModoLeituraEscala();
     return;
   }
   const rotativa=estadoParaRotativa(estado);
   const rotativaResult=await window.FirebaseSync.salvar(rotativa,ROTATIVA_DOC_ID,{status:"aberto"});
   if(rotativaResult.ok){
+    window._arquivoAbertoDocId=backupId;
     popMsg(`Escala gravada: rotativa atualizada e backup criado. [${backupId}]`);
   }else{
     popMsg(`Backup gravado, mas a rotativa não foi atualizada. [${backupId}]`);
   }
+  atualizarModoLeituraEscala();
 };
 const gravarPagina=()=>{
   if(!validarDadosParaSalvar())return;
@@ -2458,6 +2496,7 @@ const editarPagina=()=>{
     if(input.value===CREDENCIAL_EDICAO){
       pop.remove();
       window._modoEdicaoForcado=true;
+      atualizarModoLeituraEscala();
       popMsg("Modo de edição habilitado. Lembre de GRAVAR ao finalizar.");
     }else{
       input.value="";
@@ -2483,13 +2522,6 @@ const duplicarPagina=()=>{
     mes:pop.querySelector("#dupFiltroMes"),
     plantao:pop.querySelector("#dupFiltroPlantao")
   };
-  const parseBackupId=(id)=>{
-    const match=String(id||"").match(/^(?:escala-)?(\d{2})-(\d{2})-(\d{4})-([A-Z]+)$/i);
-    if(!match)return null;
-    const [,dia,mes,ano,plantao]=match;
-    const dataIso=`${ano}-${mes}-${dia}`;
-    return {id,dataIso,plantao:normResp(plantao),label:`${dia}/${mes}/${ano} - ${normResp(plantao)}`};
-  };
   let itens=[];
   const carregarLista=async()=>{
     selectOrigem.innerHTML=`<option value="">Carregando escalas...</option>`;
@@ -2498,7 +2530,7 @@ const duplicarPagina=()=>{
       mes:filtros.mes.value,
       plantao:filtros.plantao.value
     })||[];
-    itens=lista.map((item)=>parseBackupId(item.id)).filter(Boolean);
+    itens=lista.map((item)=>parseBackupDocGestao(item.id)).filter(Boolean).map((item)=>({...item,label:`${item.dia}/${item.mes}/${item.ano} - ${item.plantao}`}));
     selectOrigem.innerHTML=`<option value="">Escolha a escala origem</option>${itens.map((item)=>`<option value="${cfgEsc(item.id)}">${cfgEsc(item.label)}</option>`).join("")}`;
     if(!itens.length)selectOrigem.innerHTML=`<option value="">Nenhuma escala encontrada</option>`;
     atualizarInfos();
@@ -2530,6 +2562,9 @@ const duplicarPagina=()=>{
     restaurandoEstadoPagina=true;
     aplicarEstadoPagina(novoEstado);
     restaurandoEstadoPagina=false;
+    window._arquivoAbertoDocId="";
+    window._modoEdicaoForcado=false;
+    window._escalaAbertaStatus=window.FirebaseSync?.calcularStatus?.(novaData)||"aberto";
     setTopoGestao(novaData);
     localStorage.removeItem(STORAGE_ESCALA_KEY);
     popMsg("Escala duplicada na tela. Confira os dados e clique em GRAVAR.");
@@ -2566,10 +2601,11 @@ const excluirPagina=()=>{
   input.addEventListener("keydown",(e)=>{if(e.key==="Enter")executar();});
   pop.querySelector("[data-act='sair']").addEventListener("click",()=>pop.remove());
 };
-const aplicarEstadoAberto=(estado,pop,origem="arquivo")=>{
+const aplicarEstadoAberto=(estado,pop,origem="arquivo",docId="")=>{
   try{
     if(!estado||typeof estado!=="object")throw new Error("arquivo sem dados de escala");
     pop?.remove();
+    limparPaginaNova();
     estado.origemArquivoUsuario=true;
     restaurandoEstadoPagina=true;
     const ok=aplicarEstadoPagina(estado);
@@ -2579,6 +2615,11 @@ const aplicarEstadoAberto=(estado,pop,origem="arquivo")=>{
     localStorage.removeItem(STORAGE_ESCALA_KEY);
     salvarUltimoGravadoValido(estadoAplicado);
     salvarTabelasEscalaDados();
+    const dataIso=estadoAplicado?.topo?.data||"";
+    window._escalaAbertaStatus=window.FirebaseSync?.calcularStatus?.(dataIso)||"aberto";
+    window._modoEdicaoForcado=false;
+    window._arquivoAbertoDocId=docId;
+    atualizarModoLeituraEscala();
     popMsg(`${origem} aberto com sucesso.`);
     return true;
   }catch(err){
@@ -2664,13 +2705,69 @@ const abrirDaNuvem=async(pop)=>{
   aplicarEstadoAberto(result.payload,null,`Nuvem [${docId}]`);
 };
 const abrirPagina=()=>{
-  const pop=abrirPopArquivo(`<div class="s03-clear-title">ABRIR</div><div class="s03-clear-msg">Escolha a origem dos dados.</div><div class="s03-clear-actions"><button class="s03-clear-confirm" type="button" data-act="nuvem">☁ NUVEM</button><button class="s03-clear-confirm" type="button" data-act="ultimo">ÚLTIMO LOCAL</button><button class="s03-clear-exit" type="button" data-act="importar">IMPORTAR</button><button class="s03-clear-exit" type="button" data-act="sair">SAIR</button></div><input id="arquivoBackupJson" type="file" accept="application/json,.json" hidden>`);
-  const input=pop.querySelector("#arquivoBackupJson");
-  pop.querySelector("[data-act='nuvem']").addEventListener("click",()=>abrirDaNuvem(pop));
-  pop.querySelector("[data-act='ultimo']").addEventListener("click",()=>abrirUltimoGravado(pop,input));
-  pop.querySelector("[data-act='importar']").addEventListener("click",()=>input.click());
-  input.addEventListener("change",()=>abrirBackupArquivo(input.files?.[0],pop));
+  if(typeof window.FirebaseSync==="undefined"){popMsg("Firebase não disponível.");return;}
+  const pop=abrirPopArquivo(`<div class="s03-clear-title">ABRIR</div><div class="s03-clear-msg">Selecione uma escala gravada.</div><div class="s03-clear-actions" style="flex-direction:column;align-items:stretch;gap:8px;width:min(560px,92vw)"><div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px"><input id="abrirFiltroData" type="date" style="min-width:0;padding:6px;border:1px solid #cbd5e1;border-radius:4px"><select id="abrirFiltroPlantao" style="min-width:0;padding:6px;border:1px solid #cbd5e1;border-radius:4px"><option value="">Plantão</option><option>ALFA</option><option>BRAVO</option><option>CHARLIE</option><option>DELTA</option></select><select id="abrirFiltroAno" style="min-width:0;padding:6px;border:1px solid #cbd5e1;border-radius:4px"><option value="">Ano</option></select><select id="abrirFiltroMes" style="min-width:0;padding:6px;border:1px solid #cbd5e1;border-radius:4px"><option value="">Mês</option></select></div><div id="abrirListaArquivos" style="max-height:310px;overflow:auto;border:1px solid #cbd5e1;border-radius:4px;background:#fff"></div><div style="display:flex;justify-content:center;gap:8px"><button class="s03-clear-exit" type="button" data-act="limpar">LIMPAR FILTROS</button><button class="s03-clear-exit" type="button" data-act="sair">SAIR</button></div></div>`);
+  const filtroData=pop.querySelector("#abrirFiltroData");
+  const filtroPlantao=pop.querySelector("#abrirFiltroPlantao");
+  const filtroAno=pop.querySelector("#abrirFiltroAno");
+  const filtroMes=pop.querySelector("#abrirFiltroMes");
+  const listaEl=pop.querySelector("#abrirListaArquivos");
+  let arquivos=[];
+  const renderFiltros=()=>{
+    const anos=[...new Set(arquivos.map((item)=>item.ano))].sort((a,b)=>Number(b)-Number(a));
+    const meses=[...new Set(arquivos.filter((item)=>!filtroAno.value||item.ano===filtroAno.value).map((item)=>item.mes))].sort();
+    const anoAtual=filtroAno.value;
+    const mesAtual=filtroMes.value;
+    filtroAno.innerHTML=`<option value="">Ano</option>${anos.map((ano)=>`<option value="${cfgEsc(ano)}">${cfgEsc(ano)}</option>`).join("")}`;
+    filtroAno.value=anos.includes(anoAtual)?anoAtual:"";
+    filtroMes.innerHTML=`<option value="">Mês</option>${meses.map((mes)=>`<option value="${cfgEsc(mes)}">${cfgEsc(mes)} - ${mesNomeGestao(mes)}</option>`).join("")}`;
+    filtroMes.value=meses.includes(mesAtual)?mesAtual:"";
+  };
+  const arquivosFiltrados=()=>arquivos.filter((item)=>{
+    if(filtroData.value&&item.dataIso!==filtroData.value)return false;
+    if(filtroPlantao.value&&item.plantao!==filtroPlantao.value)return false;
+    if(filtroAno.value&&item.ano!==filtroAno.value)return false;
+    if(filtroMes.value&&item.mes!==filtroMes.value)return false;
+    return true;
+  });
+  const renderLista=()=>{
+    const rows=arquivosFiltrados();
+    if(!rows.length){
+      listaEl.innerHTML=`<div style="padding:12px;text-align:center;color:#64748b;font-size:13px">Nenhuma escala encontrada.</div>`;
+      return;
+    }
+    listaEl.innerHTML=rows.map((item)=>{
+      const status=window.FirebaseSync.calcularStatus(item.dataIso);
+      const badge=status==="aberto"?"ABERTO":"VENCIDO";
+      return `<button type="button" data-doc-id="${cfgEsc(item.id)}" style="width:100%;display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 10px;border:0;border-bottom:1px solid #e2e8f0;background:#fff;text-align:left;cursor:pointer;font-weight:700;color:#1e3a5f"><span>${cfgEsc(item.label)}</span><span style="font-size:11px;color:${status==="aberto"?"#166534":"#92400e"}">${badge}</span></button>`;
+    }).join("");
+  };
+  const atualizar=()=>{
+    renderFiltros();
+    renderLista();
+  };
+  const carregar=async()=>{
+    listaEl.innerHTML=`<div style="padding:12px;text-align:center;color:#64748b;font-size:13px">Carregando escalas...</div>`;
+    const lista=await window.FirebaseSync.listarBackups?.()||[];
+    arquivos=lista.map((item)=>parseBackupDocGestao(item.id)).filter(Boolean);
+    atualizar();
+  };
+  const abrirDoc=async(docId)=>{
+    const meta=arquivos.find((item)=>item.id===docId);
+    const result=await window.FirebaseSync.carregar(docId);
+    if(!result?.payload){popMsg("Não foi possível carregar a escala selecionada.");return;}
+    const estado=cloneGestao(result.payload);
+    if(meta)estado.topo={...(estado.topo||{}),data:meta.dataIso,plantao:meta.plantao};
+    aplicarEstadoAberto(estado,pop,meta?.label||docId,docId);
+  };
+  [filtroData,filtroPlantao,filtroAno,filtroMes].forEach((el)=>el.addEventListener("change",()=>{if(el===filtroAno)filtroMes.value="";atualizar();}));
+  listaEl.addEventListener("click",(event)=>{
+    const btn=event.target.closest("[data-doc-id]");
+    if(btn)abrirDoc(btn.dataset.docId);
+  });
+  pop.querySelector("[data-act='limpar']").addEventListener("click",()=>{filtroData.value="";filtroPlantao.value="";filtroAno.value="";filtroMes.value="";atualizar();});
   pop.querySelector("[data-act='sair']").addEventListener("click",()=>pop.remove());
+  carregar();
 };
 const inicializarGestaoPagina=()=>{
   limparPaginaNova();
@@ -2769,6 +2866,9 @@ document.addEventListener("click",(event)=>{
   limparAcaoCelulaEscala();
 },true);
 document.addEventListener("dragend",()=>{if(tdAvisoForca)limparAvisoForcaRestrita(tdAvisoForca);});
+["click","dblclick","pointerdown","keydown","input","change","drop","dragstart"].forEach((eventName)=>{
+  document.addEventListener(eventName,bloquearInteracaoLeitura,true);
+});
 document.getElementById("topoDatePicker")?.addEventListener("focus",(event)=>event.target.blur());
 document.getElementById("topoDatePicker")?.addEventListener("click",(event)=>event.preventDefault());
 document.getElementById("topoDatePicker")?.addEventListener("change",()=>{validarResponsaveisAusentesPlantaoAtual();renderResponsaveisViews();renderResponsaveisPostos();atualizarBotaoGravarGestao();});
