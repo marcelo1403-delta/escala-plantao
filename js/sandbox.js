@@ -1825,21 +1825,17 @@ const aplicarAlocacoesDadosNaView=(rows=alocacaoRows)=>{
 };
 const salvarTabelasEscalaDados=()=>{
   try{
-    garantirHorariosVivencias();
-    const alocacoes=sincronizarAlocacoesDadosDoDom();
-    const tabelas=snapshotTabelasEscala();
-    if(!alocacoesTemNomes(alocacoes)&&!tabelasEscalaTemNomes(tabelas))return;
-    localStorage.setItem(STORAGE_TABELAS_ESCALA_KEY,JSON.stringify({versao:3,salvoEm:new Date().toISOString(),alocacoes,tabelas}));
-    window._ultimoSnapshotTabelasEscala=tabelas;
+    localStorage.removeItem(STORAGE_TABELAS_ESCALA_KEY);
+    window._ultimoSnapshotTabelasEscala=snapshotTabelasEscala();
     window._alocacaoRows=alocacaoRows;
   }catch(err){
-    console.warn("Nao foi possivel salvar tabelas da escala",err);
+    console.warn("Nao foi possivel limpar cache local da escala",err);
   }
 };
 const agendarSalvarTabelasEscala=()=>{
   if(restaurandoTabelasEscala)return;
   clearTimeout(tabelasEscalaSaveTimer);
-  tabelasEscalaSaveTimer=setTimeout(salvarTabelasEscalaDados,120);
+  tabelasEscalaSaveTimer=null;
 };
 const carregarTabelasEscalaDados=(forcar=false)=>{
   if(estadoPaginaRestaurouTabelas&&!forcar)return false;
@@ -2044,35 +2040,16 @@ let restaurandoEstadoPagina=false;
 let bloquearAutosaveAte=0;
 const salvarUltimoGravadoValido=(estado)=>localStorage.setItem(STORAGE_ULTIMO_GRAVADO_KEY,JSON.stringify(estado));
 const salvarLocalEmergencial=()=>{
-  if(restaurandoEstadoPagina)return;
-  if(Date.now()<bloquearAutosaveAte)return;
-  try{
-    salvarTabelasEscalaDados();
-    const estado=coletarEstadoPagina();
-    localStorage.setItem(STORAGE_ESCALA_KEY,JSON.stringify(estado));
-  }catch(err){
-    console.warn("Autosave local indisponível",err);
-  }
+  localStorage.removeItem(STORAGE_ESCALA_KEY);
+  localStorage.removeItem(STORAGE_TABELAS_ESCALA_KEY);
 };
 const agendarAutosavePagina=()=>{
-  if(restaurandoEstadoPagina)return;
-  if(Date.now()<bloquearAutosaveAte)return;
   clearTimeout(autosaveTimerPagina);
-  autosaveTimerPagina=setTimeout(salvarLocalEmergencial,700);
+  autosaveTimerPagina=null;
 };
 const restaurarAutosavePagina=()=>{
-  const raw=localStorage.getItem(STORAGE_ESCALA_KEY);
-  if(!raw)return;
-  setTimeout(()=>{
-    try{
-      restaurandoEstadoPagina=true;
-      aplicarEstadoPagina(JSON.parse(raw));
-    }catch(err){
-      console.warn("Autosave local inválido",err);
-    }finally{
-      restaurandoEstadoPagina=false;
-    }
-  },250);
+  localStorage.removeItem(STORAGE_ESCALA_KEY);
+  localStorage.removeItem(STORAGE_TABELAS_ESCALA_KEY);
 };
 const nomeDataArquivo=()=>document.getElementById("topoDatePicker")?.value||"";
 const dataArquivoPt=()=>{
@@ -2231,8 +2208,8 @@ const aplicarBaseRotativaNaNovaEscala=async(dataIso)=>{
   window._alocacaoRows=alocacaoRows;
   aplicarHorariosAtuais();
   garantirHorariosVivencias();
-  salvarTabelasEscalaDados();
-  localStorage.setItem(STORAGE_ESCALA_KEY,JSON.stringify(coletarEstadoPagina()));
+  localStorage.removeItem(STORAGE_ESCALA_KEY);
+  localStorage.removeItem(STORAGE_TABELAS_ESCALA_KEY);
 };
 const abrirPopArquivo=(html)=>{
   const overlay=document.createElement("div");
@@ -2390,7 +2367,7 @@ const confirmarNovoPagina=()=>{
 };
 const executarGravarPagina=async()=>{
   const estado=coletarEstadoPagina();
-  localStorage.setItem(STORAGE_ESCALA_KEY,JSON.stringify(estado));
+    localStorage.removeItem(STORAGE_ESCALA_KEY);
   salvarUltimoGravadoValido(estado);
   if(typeof window.FirebaseSync==="undefined"){
     popMsg("Firebase indisponível. Dados salvos localmente.");
@@ -2554,7 +2531,7 @@ const duplicarPagina=()=>{
     aplicarEstadoPagina(novoEstado);
     restaurandoEstadoPagina=false;
     setTopoGestao(novaData);
-    localStorage.setItem(STORAGE_ESCALA_KEY,JSON.stringify(coletarEstadoPagina()));
+    localStorage.removeItem(STORAGE_ESCALA_KEY);
     popMsg("Escala duplicada na tela. Confira os dados e clique em GRAVAR.");
   };
   Object.values(filtros).forEach((el)=>el.addEventListener("change",carregarLista));
@@ -2599,7 +2576,7 @@ const aplicarEstadoAberto=(estado,pop,origem="arquivo")=>{
     if(!ok)throw new Error("estado nao aplicado");
     restaurandoEstadoPagina=false;
     const estadoAplicado=coletarEstadoPagina();
-    localStorage.setItem(STORAGE_ESCALA_KEY,JSON.stringify(estadoAplicado));
+    localStorage.removeItem(STORAGE_ESCALA_KEY);
     salvarUltimoGravadoValido(estadoAplicado);
     salvarTabelasEscalaDados();
     popMsg(`${origem} aberto com sucesso.`);
