@@ -1,0 +1,281 @@
+﻿@charset "UTF-8";
+
+/* =========================================================
+   SANDBOX — ETAPA 2: NAVBAR / TOPBAR
+   Teste inline. Depois de aprovado, copiar para css/topbar.css.
+   ========================================================= */
+#mainHeader.topo-unico {
+  height: 50px !important;
+  min-height: 50px !important;
+  max-height: 50px !important;
+  background: #0c2d6b !important;
+  border-bottom: 2px solid #1a4a9a !important;
+  display: grid !important;
+  grid-template-columns: auto 1fr auto !important;
+  align-items: stretch !important;
+  padding: 0 12px !important;
+  position: relative !important;
+  z-index: 9999 !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+  gap: 12px !important;
+  color: #fff !important;
+  font-family: Arial, sans-serif !important;
+}
+
+#mainHeader .topo-secao {
+  display: flex !important;
+  height: 50px !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+#mainHeader .topo-esquerda {
+  justify-content: flex-start !important;
+  align-items: flex-end !important;
+  padding: 0 !important;
+}
+
+#mainHeader .topo-centro {
+  justify-content: center !important;
+  align-items: center !important;
+  padding: 0 !important;
+}
+
+#mainHeader .topo-direita {
+  justify-content: flex-end !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 0 !important;
+}
+
+#mainHeader .topo-tabs {
+  display: flex !important;
+  align-items: flex-end !important;
+  gap: 0 !important;
+  height: 50px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+#mainHeader .top-tab {
+  height: 50px !important;
+  min-height: 50px !important;
+  max-height: 50px !important;
+  min-width: unset !important;
+  padding: 10px 22px 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: rgba(255,255,255,.55) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  transition: color .15s, border-color .15s !important;
+}
+
+#mainHeader .top-tab:hover,
+#mainHeader .top-tab:not(.active):hover {
+  color: rgba(255,255,255,.85) !important;
+  background: transparent !important;
+}
+
+#mainHeader .top-tab.active {
+  background: transparent !important;
+  color: #fff !important;
+  border-color: transparent !important;
+  border-bottom-color: #7eb8ff !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+#mainHeader .topo-centro-box {
+  height: 30px !important;
+  min-height: 30px !important;
+  max-height: 30px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  box-shadow: none !important;
+}
+
+#mainHeader .topo-date-group {
+  height: 28px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  border: 1px solid rgba(255,255,255,.20) !important;
+  border-radius: 4px !important;
+  background: rgba(255,255,255,.10) !important;
+  padding: 0 8px !important;
+  box-sizing: border-box !important;
+}
+
+#mainHeader .topo-date-picker,
+#mainHeader .topo-date-group .topo-date-picker {
+  width: 112px !important;
+  min-width: 112px !important;
+  height: 26px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #fff !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+#mainHeader .topo-date-picker::-webkit-calendar-picker-indicator {
+  filter: invert(1) !important;
+  opacity: .75 !important;
+  cursor: pointer !important;
+}
+
+#mainHeader .topo-dia-semana,
+#mainHeader .topo-date-group .topo-dia-semana {
+  width: 126px !important;
+  min-width: 126px !important;
+  max-width: 126px !important;
+  height: 26px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding-left: 6px !important;
+  border-left: 1px solid rgba(255,255,255,.18) !important;
+  background: transparent !important;
+  color: rgba(255,255,255,.72) !important;
+  font-family: inherit !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  white-space: nowrap !important;
+}
+
+#mainHeader .topo-plantao-box,
+#mainHeader .topo-fullscreen-btn {
+  height: 30px !important;
+  min-height: 30px !important;
+  max-height: 30px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 4px !important;
+  box-sizing: border-box !important;
+}
+
+#mainHeader .topo-plantao-box {
+  min-width: 84px !important;
+  margin-left: 0 !important;
+  padding: 0 14px !important;
+  border: 1px solid rgba(255,255,255,.25) !important;
+  background: rgba(255,255,255,.12) !important;
+  color: #e3b341 !important;
+  font-family: inherit !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: .5px !important;
+  box-shadow: none !important;
+  white-space: nowrap !important;
+  text-transform: uppercase !important;
+}
+
+#mainHeader .topo-fullscreen-btn {
+  width: 36px !important;
+  min-width: 36px !important;
+  border: 1px solid rgba(255,255,255,.2) !important;
+  background: rgba(255,255,255,.08) !important;
+  color: rgba(255,255,255,.7) !important;
+  font-size: 22px !important;
+  font-weight: 900 !important;
+  cursor: pointer !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+  margin-left: 0 !important;
+  box-shadow: none !important;
+}
+
+#mainHeader .topo-action-btn {
+  height: 28px !important;
+  min-width: 0 !important;
+  padding: 0 12px !important;
+  border: 1px solid #2a4a8a !important;
+  border-radius: 4px !important;
+  background: #1a2a4a !important;
+  color: #60a5fa !important;
+  font-family: inherit !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  box-shadow: none !important;
+  transition: opacity .15s, background .15s !important;
+}
+
+#mainHeader #btnNovoTop {
+  background: #1a4a20 !important;
+  color: #4ade80 !important;
+  border-color: #2d6a30 !important;
+}
+
+
+#mainHeader .topo-action-btn:hover,
+#mainHeader .topo-fullscreen-btn:hover {
+  opacity: .85 !important;
+  background: rgba(255,255,255,.18) !important;
+  color: #fff !important;
+}
+
+#mainHeader #btnNovoTop:hover {
+  background: #24602b !important;
+  color: #86efac !important;
+}
+
+
+body:not(.aba-escala-ativa) #mainHeader .topo-direita {
+  display: none !important;
+}
+
+#mainHeader .topo-action-btn:first-child {
+  border-radius: 4px 0 0 4px !important;
+}
+
+#mainHeader .topo-action-btn:last-child {
+  border-radius: 0 4px 4px 0 !important;
+}
+
+@media (max-width: 1050px) {
+  #mainHeader.topo-unico {
+    grid-template-columns: auto 1fr auto !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    gap: 8px !important;
+  }
+
+  #mainHeader .topo-centro-box {
+    transform: scale(.92);
+    transform-origin: center center;
+  }
+
+  #mainHeader .topo-action-btn {
+    padding: 0 7px !important;
+  }
+}
