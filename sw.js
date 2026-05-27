@@ -1,5 +1,5 @@
 // sw.js - Service Worker Escala Plantao
-const CACHE = "escala-plantao-v6";
+const CACHE = "escala-plantao-v7";
 const ASSETS = [
   "/",
   "/css_canonico_limpo.css",
@@ -10,7 +10,7 @@ const ASSETS = [
   "/js/dados-servidores.js",
   "/js/impressao.js",
   "/brasao_republica.png",
-  "/manifest.json"
+  "/manifest-gestao.webmanifest"
 ];
 
 self.addEventListener("install", (event) => {
