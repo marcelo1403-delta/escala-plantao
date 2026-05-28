@@ -12,7 +12,7 @@
 <title>Escala Plantão - Sistema de Gestão</title>
 <link rel="manifest" href="manifest-gestao.webmanifest?v=1"/>
 <link rel="apple-touch-icon" href="icons/icon-192.png"/>
-<link rel="stylesheet" href="css_canonico_limpo.css?v=70"/>
+<link rel="stylesheet" href="css_canonico_limpo.css?v=71"/>
 </head>
 <body class="force-ppf turno-diurno aba-escala-ativa">
 <header class="topo-unico" id="mainHeader">
@@ -29,7 +29,6 @@
 <span class="topo-dia-semana" id="topoDiaSemana"></span>
 </div>
 <span class="topo-plantao-box" id="topoPlantaoDia"></span>
-<span class="topo-cloudflare-msg">CLOUDFLARE OK</span>
 <button class="topo-fullscreen-btn" id="btnFullscreenEscala" title="Tela cheia" type="button">⛶</button>
 </div>
 </section>
@@ -37,12 +36,16 @@
 <button class="hdr-btn topo-action-btn" id="btnNovoTop" type="button">NOVO</button>
 <button class="hdr-btn topo-action-btn" id="btnAbrirTop" type="button">ABRIR</button>
 <button class="hdr-btn topo-action-btn" id="btnGravarTop" type="button">GRAVAR</button>
-<button class="hdr-btn topo-action-btn" id="btnBackupTop" type="button">BACKUP</button>
-<button class="hdr-btn topo-action-btn" id="btnExportarTop" type="button">EXPORTAR</button>
-<button class="hdr-btn topo-action-btn" id="btnImportarTop" type="button">IMPORTAR</button>
-<button class="hdr-btn topo-action-btn btn-editar-plantao" id="btnEditarTop" type="button">EDITAR</button>
-<button class="hdr-btn topo-action-btn" id="btnDuplicarTop" type="button">DUPLICAR</button>
-<button class="hdr-btn topo-action-btn btn-excluir-plantao" id="btnExcluirTop" type="button">EXCLUIR</button>
+<div class="topo-menu-wrap">
+<button class="hdr-btn topo-action-btn" id="btnOutrosTop" type="button" aria-expanded="false" aria-haspopup="menu">OUTROS</button>
+<div class="topo-outros-menu" id="menuOutrosTop" role="menu" aria-hidden="true">
+<button class="topo-outros-item btn-editar-plantao" id="btnEditarTop" type="button" role="menuitem">EDITAR</button>
+<button class="topo-outros-item" id="btnDuplicarTop" type="button" role="menuitem">DUPLICAR</button>
+<button class="topo-outros-item" id="btnImportarTop" type="button" role="menuitem">IMPORTAR</button>
+<button class="topo-outros-item" id="btnExportarTop" type="button" role="menuitem">EXPORTAR</button>
+<button class="topo-outros-item btn-excluir-plantao" id="btnExcluirTop" type="button" role="menuitem">EXCLUIR</button>
+</div>
+</div>
 </section>
 </header>
 <div id="previa-overlay">
@@ -734,7 +737,7 @@
 </div>
 </div>
 <script src="js/firebase-sync.js?v=4"></script>
-<script src="js/sandbox.js?v=67"></script>
+<script src="js/sandbox.js?v=68"></script>
 <script src="js/cadastro.js?v=12"></script>
 <script>
 // Registro do Service Worker (PWA)

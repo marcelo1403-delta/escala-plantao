@@ -2921,9 +2921,33 @@ const acionarFerramentaEscala=(btn,event)=>{
   else setModoColunaEscala(tool);
 };
 document.querySelectorAll(".s03-tool-edicao [data-s03-tool]").forEach((btn)=>btn.addEventListener("click",(event)=>acionarFerramentaEscala(btn,event)));
+const btnOutrosTop=document.getElementById("btnOutrosTop");
+const menuOutrosTop=document.getElementById("menuOutrosTop");
+const fecharMenuOutrosTop=()=>{
+  menuOutrosTop?.classList.remove("is-open");
+  menuOutrosTop?.setAttribute("aria-hidden","true");
+  btnOutrosTop?.setAttribute("aria-expanded","false");
+};
+const alternarMenuOutrosTop=(event)=>{
+  event?.preventDefault?.();
+  const abrir=!menuOutrosTop?.classList.contains("is-open");
+  if(abrir){
+    menuOutrosTop?.classList.add("is-open");
+    menuOutrosTop?.setAttribute("aria-hidden","false");
+    btnOutrosTop?.setAttribute("aria-expanded","true");
+  }else{
+    fecharMenuOutrosTop();
+  }
+};
+btnOutrosTop?.addEventListener("click",alternarMenuOutrosTop);
+menuOutrosTop?.addEventListener("click",(event)=>{if(event.target.closest(".topo-outros-item"))fecharMenuOutrosTop();});
+document.addEventListener("click",(event)=>{
+  if(!menuOutrosTop?.classList.contains("is-open"))return;
+  if(event.target.closest?.(".topo-menu-wrap"))return;
+  fecharMenuOutrosTop();
+},true);
 document.getElementById("btnNovoTop")?.addEventListener("click",confirmarNovoPagina);
 document.getElementById("btnGravarTop")?.addEventListener("click",gravarPagina);
-document.getElementById("btnBackupTop")?.addEventListener("click",backupPagina);
 document.getElementById("btnAbrirTop")?.addEventListener("click",abrirPagina);
 document.getElementById("btnExportarTop")?.addEventListener("click",exportarPagina);
 document.getElementById("btnImportarTop")?.addEventListener("click",importarPagina);
@@ -2947,6 +2971,7 @@ document.addEventListener("keydown",(event)=>{
   if(modoDropdownEscala)setModoDropdownEscala(false);
   if(modoColunaEscala)limparEstadoColunaEscala();
   if(tabelaLimparPendente)fecharPopoverLimparTabela(false);
+  fecharMenuOutrosTop();
 });
 document.querySelectorAll(".lp-force-btn").forEach((btn)=>btn.addEventListener("click",()=>{
   if(modoAlocarAtivo)limparSelecaoAlocar();
